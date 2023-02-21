@@ -1,6 +1,6 @@
 # Analyst Punishing Framework
 
-Inspired by "Suicide Linux". 
+Inspired by "Suicide Linux". This is actually for my IS335 class project. "Analyst Punishing" is for my STONERHINO project, which is supposed to me this C2 Framework.
 
 I actually got this idea over two days ago after reading some chapters of Surreptious Software from the University of Arizona. Instead of just exiting when being analyzed or tampered with, why not retaliate? 
 
